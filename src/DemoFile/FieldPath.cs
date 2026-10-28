@@ -14,11 +14,29 @@ internal struct FieldPath : IReadOnlyList<int>
     private InlineStorage _storage;
     private byte _size; // byte is sufficient for max size 7
 
+#if NET8_0_OR_GREATER
     [InlineArray(7)]
     private struct InlineStorage
     {
         internal int _element0;
     }
+#else
+    // Mono and IL2CPP don't support [InlineArray], so lay out the elements by hand
+    [StructLayout(LayoutKind.Sequential)]
+    private struct InlineStorage
+    {
+        internal int _element0;
+#pragma warning disable CS0169 // Accessed via Unsafe.Add from _element0
+        private int _element1, _element2, _element3, _element4, _element5, _element6;
+#pragma warning restore CS0169
+
+        internal int this[int index]
+        {
+            readonly get => Unsafe.Add(ref Unsafe.AsRef(in _element0), index);
+            set => Unsafe.Add(ref _element0, index) = value;
+        }
+    }
+#endif
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Add(int item)

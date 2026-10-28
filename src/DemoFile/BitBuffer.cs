@@ -249,7 +249,8 @@ public ref struct BitBuffer
     public float ReadAngle(int bits)
     {
         var max = (1UL << bits) - 1;
-        return 360.0f * ReadUBits(bits) / max;
+        // (float) casts force float32 rounding on runtimes that keep higher precision (Mono)
+        return (float)((float)(360.0f * ReadUBits(bits)) / max);
     }
 
     public float ReadCoord()
@@ -278,7 +279,7 @@ public ref struct BitBuffer
     public float ReadCoordPrecise()
     {
         const float SCALE = 360.0f / (1 << 20);
-        return ReadUBits(20) * SCALE - 180.0f;
+        return (float)((float)(ReadUBits(20) * SCALE) - 180.0f);
     }
 
     public string ReadStringUtf8()
@@ -323,10 +324,10 @@ public ref struct BitBuffer
         var y = hasY ? ReadNormal() : 0.0f;
 
         var negZ = ReadOneBit();
-        var sumSqr = x * x + y * y;
+        var sumSqr = (float)((float)(x * x) + (float)(y * y));
 
         var z = sumSqr < 1.0f
-            ? MathF.Sqrt(1.0f - sumSqr)
+            ? MathF.Sqrt((float)(1.0f - sumSqr))
             : 0.0f;
 
         return new Vector(x, y, negZ ? -z : z);

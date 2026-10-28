@@ -48,35 +48,39 @@ internal readonly record struct QuantizedFloatEncoding(
         Debug.Assert(bitCount > 0);
         var steps = 1 << bitCount;
 
+        // The explicit (float) casts in this file force float32 rounding of every intermediate.
+        // ECMA-335 lets a runtime keep floats at higher precision, and Mono (the Unity editor) does.
+        // Without the casts the Quantize() comparisons below can flip, which changes the flags
+        // and therefore how many bits Decode() reads, corrupting the rest of the packet.
         var offset = 0.0f;
         if (flags.HasFlag(QuantizedFloatFlags.RoundDown))
         {
-            offset = (high - low) / steps;
-            high -= offset;
+            offset = (float)((float)(high - low) / steps);
+            high = (float)(high - offset);
         }
         else if (flags.HasFlag(QuantizedFloatFlags.RoundUp))
         {
-            offset = (high - low) / steps;
-            low += offset;
+            offset = (float)((float)(high - low) / steps);
+            low = (float)(low + offset);
         }
 
         // Handle integer encoding flag
         if (flags.HasFlag(QuantizedFloatFlags.EncodeIntegers))
         {
-            var delta = Math.Max(1.0f, high - low);
+            var delta = Math.Max(1.0f, (float)(high - low));
 
             var deltaLog2 = (int)Math.Ceiling(Math.Log2(delta));
             var range = 1 << deltaLog2;
 
             bitCount = Math.Max(bitCount, deltaLog2);
             steps = 1 << bitCount;
-            offset = range / (float)steps;
-            high = low + range - offset;
+            offset = (float)(range / (float)steps);
+            high = (float)((float)(low + range) - offset);
         }
 
         // Assign multipliers
-        var highLowMul = CalculateHighLowMul(high - low, bitCount, steps);
-        var decMul = 1.0f / (steps - 1);
+        var highLowMul = CalculateHighLowMul((float)(high - low), bitCount, steps);
+        var decMul = (float)(1.0f / (steps - 1));
 
         float Quantize(float value)
         {
@@ -96,8 +100,8 @@ internal readonly record struct QuantizedFloatEncoding(
                 return high;
             }
 
-            var i = (uint)((value - low) * highLowMul);
-            return low + (high - low) * (i * decMul);
+            var i = (uint)(float)((float)(value - low) * highLowMul);
+            return (float)(low + (float)((float)(high - low) * (float)(i * decMul)));
         }
         
         // Remove unnecessary flags
@@ -176,17 +180,17 @@ internal readonly record struct QuantizedFloatEncoding(
             ? 0xFFFFFFFE
             : (1u << bitCount) - 1;
 
-        var highMul = range == 0.0f ? high : high / range;
+        var highMul = range == 0.0f ? high : (float)(high / range);
 
         // Adjust precision
         // todo: make this checked? original code also checked float64
-        if (highMul * range > high)
+        if ((float)(highMul * range) > high)
         {
             var multipliers = new[] { 0.9999f, 0.99f, 0.9f, 0.8f, 0.7f };
             foreach (var multiplier in multipliers)
             {
-                highMul = high / range * multiplier;
-                if (highMul * range <= high)
+                highMul = (float)((float)(high / range) * multiplier);
+                if ((float)(highMul * range) <= high)
                     break;
             }
         }
@@ -206,6 +210,6 @@ internal readonly record struct QuantizedFloatEncoding(
         if (Flags.HasFlag(QuantizedFloatFlags.EncodeZero) && buffer.ReadOneBit())
             return 0.0f;
 
-        return Low + (High - Low) * buffer.ReadUBits(BitCount) * DecMul;
+        return (float)(Low + (float)((float)((float)(High - Low) * buffer.ReadUBits(BitCount)) * DecMul));
     }
 }

@@ -1,7 +1,9 @@
 ﻿using System.Buffers.Binary;
 using System.Diagnostics;
 using System.Net;
+#if NET
 using System.Net.Http.Json;
+#endif
 using System.Text.Json.Serialization;
 using System.Threading.Channels;
 
@@ -157,7 +159,12 @@ public class HttpBroadcastReader<TGameParser>
 
     public async Task StartReadingAsync(CancellationToken cancellationToken)
     {
+#if NET
         var syncDto = (await _httpClient.GetFromJsonAsync("sync", BroadcastJsonSerializerContext.Default.BroadcastSyncDto, cancellationToken).ConfigureAwait(false))!;
+#else
+        var syncJson = await _httpClient.GetStringAsync("sync", cancellationToken).ConfigureAwait(false);
+        var syncDto = BroadcastSyncDtoParser.Parse(syncJson);
+#endif
         if (syncDto.Protocol != 5)
         {
             throw new Exception($"Unknown protocol in broadcast, expected 5, got {syncDto.Protocol}");
@@ -250,6 +257,8 @@ public class BroadcastSyncDto
     public int Protocol { get; set; }
 }
 
+#if NET
 [JsonSerializable(typeof(BroadcastSyncDto))]
 public partial class BroadcastJsonSerializerContext : JsonSerializerContext
 {}
+#endif
