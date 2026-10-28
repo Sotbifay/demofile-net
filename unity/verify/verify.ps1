@@ -15,7 +15,7 @@ param(
     [string]$UnityExe,
     [string]$DemoDir = (Join-Path $PSScriptRoot '..\..\demos'),
     # Keep this short: the Unity project's Library breaks on long Windows paths
-    [string]$WorkDir = (Join-Path $PSScriptRoot '..\..\..\_verify')
+    [string]$WorkDir = (Join-Path $PSScriptRoot '..\_verify')
 )
 
 $ErrorActionPreference = 'Stop'
